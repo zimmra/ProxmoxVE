@@ -26,6 +26,23 @@ variables
 color
 catch_errors
 
+# Installation Script URL
+SCRIPT_URL="https://raw.githubusercontent.com/zimmra/ProxmoxVE/raw/refs/heads/add-lxc-freshrss/install/freshrss-install.sh"
+
+# Function to handle installation
+function install_script() {
+    msg_info "Starting ${APP} Installation"
+    if [ -f "/etc/systemd/system/freshrss.service" ]; then
+        msg_error "${APP} is already installed!"
+        exit
+    fi
+    
+    FUNCTIONS_FILE_PATH="$(declare -p); $(declare -f)"
+    export FUNCTIONS_FILE_PATH
+    curl -s $SCRIPT_URL | bash
+    msg_ok "${APP} Installation Completed"
+}
+
 # Update function for FreshRSS
 # This function checks for updates and performs the update process
 # It includes backup creation, file updates, and permission fixes
@@ -151,6 +168,9 @@ function update_script() {
 start
 build_container
 description
+
+# Run installation
+install_script
 
 msg_ok "Completed Successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
