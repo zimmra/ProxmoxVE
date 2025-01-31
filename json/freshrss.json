@@ -1,0 +1,34 @@
+{
+    "name": "FreshRSS",
+    "slug": "freshrss",
+    "categories": [
+      19
+    ],
+    "date_created": "2025-01-30",
+    "type": "ct",
+    "updateable": true,
+    "privileged": false,
+    "interface_port": 80,
+    "documentation": "https://freshrss.github.io/FreshRSS/en/",
+    "website": "https://freshrss.org/",
+    "logo": "https://raw.githubusercontent.com/FreshRSS/FreshRSS/refs/heads/edge/docs/img/FreshRSS-logo.png",
+    "description": "A free, self-hostable news/RSS-feed aggregator",
+    "install_methods": [
+      {
+        "type": "default",
+        "script": "ct/freshrss.sh",
+        "resources": {
+          "cpu": 2,
+          "ram": 2048,
+          "hdd": 4,
+          "os": "Debian",
+          "version": "12"
+        }
+      }
+    ],
+    "default_credentials": {
+      "username": null,
+      "password": null
+    },
+    "notes": []
+  }
