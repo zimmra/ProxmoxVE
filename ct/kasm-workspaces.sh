@@ -35,9 +35,47 @@ function update_script() {
     msg_info "Updating ${APP} LXC"
     apt-get update &>/dev/null
     apt-get -y upgrade &>/dev/null
-    msg_ok "Kasm Workspaces must be updated manually, please visit this URL for instructions:"
-    msg_ok "https://kasmweb.com/docs/latest/upgrade/single_server_upgrade.html#automated-upgrade"
-    msg_ok "Updated ${APP} LXC"
+
+    # Get latest version from GitHub
+    KASM_WORKSPACES_LATEST_VERSION=$(curl -sL https://api.github.com/repos/kasmtech/kasm-install-wizard/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+    
+    # Get current installed version
+    CURRENT_VERSION=$(readlink -f /opt/kasm/current | awk -F'/' '{print $4}')
+
+    if [ "$CURRENT_VERSION" = "$KASM_WORKSPACES_LATEST_VERSION" ]; then
+        msg_ok "Kasm Workspaces is already at the latest version ($CURRENT_VERSION)"
+        exit
+    fi
+
+    msg_info "Current version: $CURRENT_VERSION"
+    msg_info "Latest version: $KASM_WORKSPACES_LATEST_VERSION"
+    msg_info "Update available!"
+
+    INSTALL_FLAGS="--proxy-port 443"
+    read -r -p "Would you like to enable lossless streaming? <y/N> " prompt
+    if [[ ${prompt,,} =~ ^(y|yes)$ ]]; then
+    INSTALL_FLAGS="${INSTALL_FLAGS} --enable-lossless"
+    fi
+
+    read -r -p "Do you need VPN egress capabilities for containers? <y/N> " prompt
+    if [[ ! ${prompt,,} =~ ^(y|yes)$ ]]; then
+    INSTALL_FLAGS="${INSTALL_FLAGS} --skip-egress"
+    fi
+
+    cd /tmp
+    msg_info "Downloading Kasm release package..."
+    wget -q https://github.com/kasmtech/kasm-install-wizard/releases/download/$KASM_WORKSPACES_LATEST_VERSION/kasm_release.tar.gz
+    
+    msg_info "Extracting release package..."
+    tar -xf kasm_release.tar.gz
+
+    msg_info "Running upgrade script..."
+    bash kasm_release/upgrade.sh ${INSTALL_FLAGS}
+
+    # Cleanup
+    rm -rf /tmp/kasm_release.tar.gz /tmp/kasm_release
+
+    msg_ok "Updated ${APP} to version $KASM_WORKSPACES_LATEST_VERSION"
     exit
 }
 

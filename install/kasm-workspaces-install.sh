@@ -27,6 +27,7 @@ DOCKER_LATEST_VERSION=$(get_latest_release "moby/moby")
 PORTAINER_LATEST_VERSION=$(get_latest_release "portainer/portainer")
 PORTAINER_AGENT_LATEST_VERSION=$(get_latest_release "portainer/agent")
 DOCKER_COMPOSE_LATEST_VERSION=$(get_latest_release "docker/compose")
+KASM_WORKSPACES_LATEST_VERSION=$(get_latest_release "kasmtech/kasm-install-wizard")
 
 msg_info "Installing Docker $DOCKER_LATEST_VERSION"
 DOCKER_CONFIG_PATH='/etc/docker/daemon.json'
@@ -63,16 +64,41 @@ else
   fi
 fi
 
-msg_info "Installing Kasm Workspaces"
+msg_info "Downloading Kasm Workspaces"
 cd /tmp
-$STD curl -O https://kasm-static-content.s3.amazonaws.com/kasm_release_1.16.1.98d6fa.tar.gz
-$STD tar -xf kasm_release_1.16.1.98d6fa.tar.gz
+$STD wget https://github.com/kasmtech/kasm-install-wizard/releases/download/$KASM_WORKSPACES_LATEST_VERSION/kasm_release.tar.gz
+$STD tar -xf kasm_release.tar.gz
 $STD sed -i 's/\$(apt-get update && apt-get install -y wireguard)/apt-get update \&\& apt-get install -y wireguard/' kasm_release/install_dependencies.sh
+msg_ok "Downloaded Kasm Workspaces"
+
+INSTALL_FLAGS="--accept-eula"
+
+read -r -p "Would you like to set a custom Kasm admin password (admin@kasm.local)? <y/N> " prompt
+if [[ ${prompt,,} =~ ^(y|yes)$ ]]; then
+  read -r -s -p "Enter admin password: " admin_password
+  echo
+  INSTALL_FLAGS="${INSTALL_FLAGS} --admin-password ${admin_password}"
+fi
+
+read -r -p "Would you like to set a custom Kasm user password (user@kasm.local)? <y/N> " prompt
+if [[ ${prompt,,} =~ ^(y|yes)$ ]]; then
+  read -r -s -p "Enter user password: " user_password
+  echo
+  INSTALL_FLAGS="${INSTALL_FLAGS} --user-password ${user_password}"
+fi
+
 read -r -p "Would you like to enable lossless streaming? <y/N> " prompt
 if [[ ${prompt,,} =~ ^(y|yes)$ ]]; then
-  $STD sed -i 's/ENABLE_LOSSLESS="false"/ENABLE_LOSSLESS="true"/' kasm_release/install.sh
+  INSTALL_FLAGS="${INSTALL_FLAGS} --enable-lossless"
 fi
-bash kasm_release/install.sh -e 2>&1 | grep -A 25 "Kasm UI Login Credentials"
+
+read -r -p "Do you need VPN egress capabilities for containers? <y/N> " prompt
+if [[ ! ${prompt,,} =~ ^(y|yes)$ ]]; then
+  INSTALL_FLAGS="${INSTALL_FLAGS} --skip-egress"
+fi
+
+msg_info "Installing Kasm Workspaces"
+bash kasm_release/install.sh ${INSTALL_FLAGS} 2>&1 | grep -A 25 "Kasm UI Login Credentials"
 echo -e "\n${YW}⚠️ WARNING: Please save these credentials - they will not be shown again!${CL}\n"
 msg_ok "Installed Kasm Workspaces"
 
