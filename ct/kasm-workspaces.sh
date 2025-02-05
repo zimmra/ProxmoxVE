@@ -6,7 +6,7 @@ source <(curl -s https://raw.githubusercontent.com/zimmra/ProxmoxVE/refs/heads/a
 # Source: https://www.docker.com/, https://kasmweb.com
 
 # App Default Values
-APP="Kasm Workspaces"
+APP="Kasm-Workspaces"
 var_tags="kasm-workspaces"
 var_cpu="2"
 var_ram="4096"
