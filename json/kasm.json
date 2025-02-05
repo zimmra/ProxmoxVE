@@ -1,0 +1,47 @@
+{
+    "name": "Kasm Workspaces",
+    "slug": "kasm",
+    "categories": [
+        3
+    ],
+    "date_created": "2025-02-05",
+    "type": "ct",
+    "updateable": false,
+    "privileged": false,
+    "interface_port": 443,
+    "documentation": null,
+    "website": "https://kasmweb.com/",
+    "logo": "https://kasmweb.com/docs/latest/_static/Kasm_Workspaces_Logo.svg",
+    "description": "Kasm Workspaces provides browser-based access to on-demand containerized desktops and applications",
+    "install_methods": [
+        {
+            "type": "default",
+            "script": "ct/kasm.sh",
+            "resources": {
+                "cpu": 2,
+                "ram": 2048,
+                "hdd": 4,
+                "os": "debian",
+                "version": "12"
+            }
+        }
+    ],
+    "default_credentials": {
+        "username": null,
+        "password": null
+    },
+    "notes": [
+        {
+            "text": "If the LXC is created Privileged, the script will automatically set up USB passthrough.",
+            "type": "warning"
+        },
+        {
+            "text": "Run Compose V2 by replacing the hyphen (-) with a space, using `docker compose`, instead of `docker-compose`.",
+            "type": "warning"
+        },
+        {
+            "text": "Options to Install Portainer and/or Docker Compose V2",
+            "type": "warning"
+        }
+    ]
+}
