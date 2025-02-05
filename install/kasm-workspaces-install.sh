@@ -63,13 +63,18 @@ else
   fi
 fi
 
-# msg_info "Installing Kasm Workspaces"
-# cd /tmp
-# $STD curl -O https://kasm-static-content.s3.amazonaws.com/kasm_release_1.16.1.98d6fa.tar.gz
-# $STD tar -xf kasm_release_1.16.1.98d6fa.tar.gz
-# $STD sed -i 's/\$(apt-get update && apt-get install -y wireguard)/apt-get update \&\& apt-get install -y wireguard/' kasm_release/install_dependencies.sh
-# $STD bash kasm_release/install.sh -e
-# msg_ok "Installed Kasm Workspaces"
+msg_info "Installing Kasm Workspaces"
+cd /tmp
+$STD curl -O https://kasm-static-content.s3.amazonaws.com/kasm_release_1.16.1.98d6fa.tar.gz
+$STD tar -xf kasm_release_1.16.1.98d6fa.tar.gz
+$STD sed -i 's/\$(apt-get update && apt-get install -y wireguard)/apt-get update \&\& apt-get install -y wireguard/' kasm_release/install_dependencies.sh
+read -r -p "Would you like to enable lossless streaming? <y/N> " prompt
+if [[ ${prompt,,} =~ ^(y|yes)$ ]]; then
+  $STD sed -i 's/ENABLE_LOSSLESS="false"/ENABLE_LOSSLESS="true"/' kasm_release/install.sh
+fi
+bash kasm_release/install.sh -e 2>&1 | grep -A 25 "Kasm UI Login Credentials"
+echo -e "\n${YW}⚠️ WARNING: Please save these credentials - they will not be shown again!${CL}\n"
+msg_ok "Installed Kasm Workspaces"
 
 motd_ssh
 customize

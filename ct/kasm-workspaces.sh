@@ -6,11 +6,11 @@ source <(curl -s https://raw.githubusercontent.com/zimmra/ProxmoxVE/refs/heads/a
 # Source: https://www.docker.com/, https://kasmweb.com
 
 # App Default Values
-APP="Kasm"
-var_tags="kasm"
+APP="Kasm Workspaces"
+var_tags="kasm-workspaces"
 var_cpu="2"
-var_ram="2048"
-var_disk="4"
+var_ram="4096"
+var_disk="12"
 var_os="debian"
 var_version="12"
 var_unprivileged="1"
