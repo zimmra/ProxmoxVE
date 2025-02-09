@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source <(curl -s https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func)
+source <(curl -s https://raw.githubusercontent.com/zimmra/ProxmoxVE/raw/refs/heads/add-lxc-freshrss/main/misc/build.func)
 # Copyright (c) 2021-2024 community-scripts ORG
 # Author: zimmra
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
@@ -75,20 +75,20 @@ function update_script() {
     if [[ "${RELEASE}" != "${CURRENT_VERSION}" ]]; then
         msg_info "Updating ${APP} from v${CURRENT_VERSION} to v${RELEASE}"
 
-        # Stop Apache
-        msg_info "Stopping Apache"
-        if ! systemctl stop apache2 &>/dev/null; then
-            msg_error "Failed to stop Apache!"
+        # Stop Nginx and PHP-FPM
+        msg_info "Stopping Services"
+        if ! systemctl stop nginx php*-fpm &>/dev/null; then
+            msg_error "Failed to stop services!"
             exit 1
         fi
-        msg_ok "Stopped Apache"
+        msg_ok "Stopped Services"
 
         # Backup current installation
         msg_info "Creating Backup"
         BACKUP_FILE="/opt/FreshRSS_backup_$(date +%F).tar.gz"
         if ! tar -czf "$BACKUP_FILE" /opt/FreshRSS/data/ &>/dev/null; then
             msg_error "Failed to create backup!"
-            systemctl start apache2 &>/dev/null
+            systemctl start nginx php*-fpm &>/dev/null
             exit 1
         fi
         msg_ok "Created Backup at ${BACKUP_FILE}"
@@ -98,14 +98,14 @@ function update_script() {
         cd /opt || exit 1
         if ! wget -q "https://github.com/FreshRSS/FreshRSS/archive/refs/tags/v${RELEASE}.tar.gz"; then
             msg_error "Failed to download update!"
-            systemctl start apache2 &>/dev/null
+            systemctl start nginx php*-fpm &>/dev/null
             exit 1
         fi
 
         if ! tar -xzf "v${RELEASE}.tar.gz" &>/dev/null; then
             msg_error "Failed to extract update!"
             rm -f "v${RELEASE}.tar.gz"
-            systemctl start apache2 &>/dev/null
+            systemctl start nginx php*-fpm &>/dev/null
             exit 1
         fi
 
@@ -116,7 +116,7 @@ function update_script() {
             msg_error "Failed to copy new files!"
             mv /opt/FreshRSS/data.bak /opt/FreshRSS/data
             rm -rf "v${RELEASE}.tar.gz" "FreshRSS-${RELEASE}"
-            systemctl start apache2 &>/dev/null
+            systemctl start nginx php*-fpm &>/dev/null
             exit 1
         fi
         rm -rf /opt/FreshRSS/data
@@ -125,32 +125,22 @@ function update_script() {
 
         # Set permissions
         msg_info "Setting Permissions"
-        if ! chown -R www-data:www-data /opt/FreshRSS/ &>/dev/null || \
+        if ! chown -R root:root /opt/FreshRSS/ &>/dev/null || \
            ! chmod -R 755 /opt/FreshRSS/ &>/dev/null || \
            ! chmod -R 775 /opt/FreshRSS/data/ &>/dev/null; then
             msg_error "Failed to set permissions!"
-            systemctl start apache2 &>/dev/null
+            systemctl start nginx php*-fpm &>/dev/null
             exit 1
         fi
         msg_ok "Set Permissions"
 
-        # Update Apache configuration
-        msg_info "Updating Apache Configuration"
-        if [[ -f /etc/apache2/sites-enabled/FreshRSS.conf ]]; then
-            if ! sed -i "s|/var/www/FreshRSS|/opt/FreshRSS|g" /etc/apache2/sites-enabled/FreshRSS.conf &>/dev/null; then
-                msg_error "Failed to update Apache configuration!"
-                exit 1
-            fi
-        fi
-        msg_ok "Updated Apache Configuration"
-
-        # Start Apache
-        msg_info "Starting Apache"
-        if ! systemctl start apache2 &>/dev/null; then
-            msg_error "Failed to start Apache!"
+        # Start services
+        msg_info "Starting Services"
+        if ! systemctl start nginx php*-fpm &>/dev/null; then
+            msg_error "Failed to start services!"
             exit 1
         fi
-        msg_ok "Started Apache"
+        msg_ok "Started Services"
 
         # Cleanup
         msg_info "Cleaning Up"

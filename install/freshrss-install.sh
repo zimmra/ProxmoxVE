@@ -115,7 +115,7 @@ server {
 }
 EOF
 
-# Remove default config
+# Remove nginx default config
 rm -f /etc/nginx/sites-enabled/default
 msg_ok "Configured Nginx"
 
