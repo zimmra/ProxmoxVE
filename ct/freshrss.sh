@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source <(curl -s https://raw.githubusercontent.com/zimmra/ProxmoxVE/raw/refs/heads/add-lxc-freshrss/main/misc/build.func)
+source <(curl -s https://raw.githubusercontent.com/zimmra/ProxmoxVE/refs/heads/add-lxc-freshrss/misc/build.func)
 # Copyright (c) 2021-2024 community-scripts ORG
 # Author: zimmra
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
@@ -27,7 +27,7 @@ color
 catch_errors
 
 # Installation Script URL
-SCRIPT_URL="https://raw.githubusercontent.com/zimmra/ProxmoxVE/raw/refs/heads/add-lxc-freshrss/install/freshrss-install.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/zimmra/ProxmoxVE/refs/heads/add-lxc-freshrss/install/freshrss-install.sh"
 
 # Function to handle installation
 function install_script() {
