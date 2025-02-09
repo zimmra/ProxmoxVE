@@ -2,8 +2,7 @@
 # Author: tteck (tteckster)
 # Co-Author: MickLesk
 # Co-Author: michelroegl-brunner
-# License: MIT
-# https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
+# License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 
 variables() {
   NSAPP=$(echo ${APP,,} | tr -d ' ') # This function sets the NSAPP variable by converting the value of the APP variable to lowercase and removing any spaces.
@@ -12,8 +11,10 @@ variables() {
   PVEHOST_NAME=$(hostname)           # gets the Proxmox Hostname and sets it to Uppercase
   DIAGNOSTICS="yes"                  # sets the DIAGNOSTICS variable to "yes", used for the API call.
   METHOD="default"                   # sets the METHOD variable to "default", used for the API call.
-  RANDOM_UUID="$(cat /proc/sys/kernel/random/uuid)" # generates a random UUID and sets it to the RANDOM_UUDI variable.
+  RANDOM_UUID="$(cat /proc/sys/kernel/random/uuid)" # generates a random UUID and sets it to the RANDOM_UUID variable.
 }
+
+source <(curl -s https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/api.func)
 
 # This function sets various color variables using ANSI escape codes for formatting text in the terminal.
 color() {
@@ -68,13 +69,14 @@ catch_errors() {
 
 # This function is called when an error occurs. It receives the exit code, line number, and command that caused the error, and displays an error message.
 error_handler() {
+  source /dev/stdin <<< $(wget -qLO - https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/api.func)																															   
   if [ -n "$SPINNER_PID" ] && ps -p $SPINNER_PID > /dev/null; then kill $SPINNER_PID > /dev/null; fi
   printf "\e[?25h"
   local exit_code="$?"
   local line_number="$1"
   local command="$2"
-  post_update_to_api "failed"
   local error_message="${RD}[ERROR]${CL} in line ${RD}$line_number${CL}: exit code ${RD}$exit_code${CL}: while executing command ${YW}$command${CL}"
+  post_update_to_api "failed" "${command}"									  
   echo -e "\n$error_message\n"
 }
 
@@ -793,70 +795,6 @@ advanced_settings() {
   fi
 }
 
-post_to_api() {
-  local API_URL="http://api.community-scripts.org/upload"
-  local pve_version="not found"
-  pve_version=$(pveversion | awk -F'[/ ]' '{print $2}')
-
-  JSON_PAYLOAD=$(cat <<EOF
-{
-    "ct_type": $CT_TYPE,
-    "disk_size": $DISK_SIZE,
-    "core_count": $CORE_COUNT,
-    "ram_size": $RAM_SIZE,
-    "verbose": "$VERBOSE",
-    "os_type": "$var_os",
-    "os_version": "$var_version",
-    "hn": "$HN",
-    "disableip6": "$DISABLEIP6",
-    "ssh": "$SSH",
-    "tags": "$TAGS",
-    "nsapp": "$NSAPP",
-    "method": "$METHOD",
-    "pve_version": "$pve_version",
-    "status": "installing",
-    "random_id": "$RANDOM_UUID"
-}
-EOF
-)
-
-  RESPONSE=$(curl -s -o response.txt -w "%{http_code}" -L -X POST "$API_URL" --post301 --post302 \
-    -H "Content-Type: application/json" \
-    -d "$JSON_PAYLOAD")
-
-  if [ "$RESPONSE" -ne 201 ] && [ "$RESPONSE" -ne 302 ]; then
-    msg_error "API request failed with HTTP code $RESPONSE"
-  fi
-
-}
-
-POST_UPDATE_DONE=false
-
-post_update_to_api() {
-    if [ "$POST_UPDATE_DONE" = true ]; then
-        return 0
-    fi
-    local API_URL="http://api.community-scripts.org/upload/updatestatus"    
-    local status="${1:-}"
-    JSON_PAYLOAD=$(cat <<EOF
-{
-    "status": "$status",
-    "random_id": "$RANDOM_UUID"
-}
-EOF
-)
-   
-   RESPONSE=$(curl -s -o response.txt -w "%{http_code}" -L -X POST "$API_URL" --post301 --post302 \
-        -H "Content-Type: application/json" \
-        -d "$JSON_PAYLOAD")
-
-    if [ "$RESPONSE" -ne 201 ] && [ "$RESPONSE" -ne 302 ]; then
-        msg_error "API UPDATE request failed with HTTP code $RESPONSE"
-    fi
-
-   POST_UPDATE_DONE=true
-}
-
 diagnostics_check(){
   if ! [ -d "/usr/local/community-scripts" ]; then
       mkdir -p /usr/local/community-scripts
@@ -880,16 +818,13 @@ DIAGNOSTICS=yes
 #"disk_size"
 #"core_count"
 #"ram_size"
-#"verbose"
 #"os_type"
 #"os_version"
-#"hn"
 #"disableip6"
-#"ssh"
-#"tags"
 #"nsapp"
 #"method"
 #"pve_version"
+#"status"
 #If you have any concerns, please review the source code at /misc/build.func
 EOF
       DIAGNOSTICS="yes"
@@ -910,16 +845,13 @@ DIAGNOSTICS=no
 #"disk_size"
 #"core_count"
 #"ram_size"
-#"verbose"
 #"os_type"
 #"os_version"
-#"hn"
 #"disableip6"
-#"ssh"
-#"tags"
 #"nsapp"
 #"method"
 #"pve_version"
+#"status"
 #If you have any concerns, please review the source code at /misc/build.func
 EOF
       DIAGNOSTICS="no"
@@ -1095,6 +1027,7 @@ build_container() {
   else
     export FUNCTIONS_FILE_PATH="$(curl -s https://raw.githubusercontent.com/zimmra/ProxmoxVE/raw/refs/heads/add-lxc-freshrss/misc/install.func)"
   fi
+  export RANDOM_UUID="$RANDOM_UUID"
   export CACHER="$APT_CACHER"
   export CACHER_IP="$APT_CACHER_IP"
   export tz="$timezone"
@@ -1232,13 +1165,36 @@ EOF
   if [[ -f /etc/systemd/system/ping-instances.service ]]; then
     systemctl start ping-instances.service
   fi
-
-  if [[ $DIAGNOSTICS == "yes" ]]; then
-    post_update_to_api
-  fi
+  
+  post_update_to_api "done" "none"
 }
 
-trap 'post_update_to_api "done"' EXIT
-trap 'post_update_to_api "failed"' SIGINT 
-trap 'post_update_to_api "failed"' SIGTERM
+
+exit_script() {
+  exit_code=$?  # Capture the exit status of the last executed command
+  #200 exit codes indicate error in create_lxc.sh
+  #100 exit codes indicate error in install.func
+
+if [ $exit_code -ne 0 ]; then  # Check if exit code is nonzero
+    case $exit_code in
+        200) post_update_to_api "failed" "create_lxc.sh: Error during LXC creation" ;;
+        201) post_update_to_api "failed" "create_lxc.sh Invalid Storage class" ;;
+        202) post_update_to_api "failed" "create_lxc.sh Invalid Menu aborted" ;;
+        203) post_update_to_api "failed" "create_lxc.sh CTID was unset" ;;
+        204) post_update_to_api "failed" "create_lxc.sh PCT_OSTYPE was unset" ;;
+        205) post_update_to_api "failed" "create_lxc.sh ID cannot be less than 100" ;;
+        206) post_update_to_api "failed" "create_lxc.sh ID already in use" ;;
+        207) post_update_to_api "failed" "create_lxc.sh Template not found" ;;
+        208) post_update_to_api "failed" "create_lxc.sh Error downloading template" ;;
+        101) post_update_to_api "failed" "create_lxc.sh No Network connection" ;;
+        *)   post_update_to_api "failed" "Unknown error, exit code: $exit_code" ;;
+    esac
+fi
+}
+
+
+trap 'exit_script' EXIT
+trap 'post_update_to_api "failed" "$BASH_COMMAND"' ERR
+trap 'post_update_to_api "failed" "INTERRUPTED"' SIGINT 
+trap 'post_update_to_api "failed" "TERMINATED"' SIGTERM
 
