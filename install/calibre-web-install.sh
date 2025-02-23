@@ -19,6 +19,13 @@ $STD apt-get install -y curl
 $STD apt-get install -y sudo
 $STD apt-get install -y mc
 $STD apt-get install -y imagemagick
+$STD apt-get install -y xvfb
+$STD apt-get install -y libxcomposite1
+$STD apt-get install -y libasound2
+$STD apt-get install -y libxcb-cursor0
+$STD apt-get install -y libxcb-xinerama0
+$STD apt-get install -y libegl1
+$STD apt-get install -y libopengl0
 msg_ok "Installed Dependencies"
 
 msg_info "Installing Python Dependencies"
