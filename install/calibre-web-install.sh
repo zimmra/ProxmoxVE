@@ -19,13 +19,6 @@ $STD apt-get install -y curl
 $STD apt-get install -y sudo
 $STD apt-get install -y mc
 $STD apt-get install -y imagemagick
-$STD apt-get install -y xvfb
-$STD apt-get install -y libxcomposite1
-$STD apt-get install -y libasound2
-$STD apt-get install -y libxcb-cursor0
-$STD apt-get install -y libxcb-xinerama0
-$STD apt-get install -y libegl1
-$STD apt-get install -y libopengl0
 msg_ok "Installed Dependencies"
 
 msg_info "Installing Python Dependencies"
@@ -42,7 +35,6 @@ msg_ok "Installed Kepubify"
 
 msg_info "Installing Calibre-Web"
 mkdir -p /opt/calibre-web
-$STD apt-get install -y calibre
 $STD wget https://github.com/janeczku/calibre-web/raw/master/library/metadata.db -P /opt/calibre-web
 $STD pip install calibreweb
 $STD pip install jsonschema
