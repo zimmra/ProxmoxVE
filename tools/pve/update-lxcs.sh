@@ -30,43 +30,53 @@ whiptail --backtitle "Proxmox VE Helper Scripts" --title "Proxmox VE LXC Updater
 NODE=$(hostname)
 UPDATE_MENU=()
 MSG_MAX_LENGTH=0
+UPDATEABLE_CONTAINERS=()
+OTHER_CONTAINERS=()
 
-# First, collect containers with "updateable" tag
+# Collect all running containers and categorize them
 while read -r TAG ITEM; do
   # Only include running containers in the menu
   status=$(pct status "$TAG")
   if [ "$status" == "status: running" ]; then
     # Check if container has "updateable" tag
-    tags=$(pct config "$TAG" | grep "^tags:" | cut -d: -f2 | tr -d ' ')
-    if [[ "$tags" == *"updateable"* ]]; then
-      OFFSET=2
-      ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
-      UPDATE_MENU+=("$TAG" "[$ITEM] (updateable)" "OFF")
+    if pct config "$TAG" | grep -q "^tags:.*updateable"; then
+      UPDATEABLE_CONTAINERS+=("$TAG" "$ITEM")
+    else
+      OTHER_CONTAINERS+=("$TAG" "$ITEM")
     fi
   fi
 done < <(pct list | awk 'NR>1')
 
-# Add a separator if we have updateable containers
-if [ ${#UPDATE_MENU[@]} -gt 0 ]; then
+# Add updateable containers to menu first
+for ((i=0; i<${#UPDATEABLE_CONTAINERS[@]}; i+=2)); do
+  TAG="${UPDATEABLE_CONTAINERS[i]}"
+  ITEM="${UPDATEABLE_CONTAINERS[i+1]}"
+  OFFSET=2
+  ((${#ITEM} + OFFSET + 13 > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET+13
+  UPDATE_MENU+=("$TAG" "[$ITEM] (updateable)" "OFF")
+done
+
+# Add a separator if we have updateable containers and other containers
+if [ ${#UPDATEABLE_CONTAINERS[@]} -gt 0 ] && [ ${#OTHER_CONTAINERS[@]} -gt 0 ]; then
   SEPARATOR_TEXT="--- Other Running Containers ---"
   ((${#SEPARATOR_TEXT} + 2 > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#SEPARATOR_TEXT}+2
   UPDATE_MENU+=("" "$SEPARATOR_TEXT" "OFF")
 fi
 
-# Then, collect all other running containers
-while read -r TAG ITEM; do
-  # Only include running containers in the menu
-  status=$(pct status "$TAG")
-  if [ "$status" == "status: running" ]; then
-    # Check if container does NOT have "updateable" tag
-    tags=$(pct config "$TAG" | grep "^tags:" | cut -d: -f2 | tr -d ' ')
-    if [[ "$tags" != *"updateable"* ]]; then
-      OFFSET=2
-      ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
-      UPDATE_MENU+=("$TAG" "$ITEM " "OFF")
-    fi
-  fi
-done < <(pct list | awk 'NR>1')
+# Add other containers to menu
+for ((i=0; i<${#OTHER_CONTAINERS[@]}; i+=2)); do
+  TAG="${OTHER_CONTAINERS[i]}"
+  ITEM="${OTHER_CONTAINERS[i+1]}"
+  OFFSET=2
+  ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
+  UPDATE_MENU+=("$TAG" "$ITEM " "OFF")
+done
+
+# Check if we have any containers to display
+if [ ${#UPDATE_MENU[@]} -eq 0 ]; then
+  echo -e "${RD}No running containers found. Exiting.${CL}"
+  exit 0
+fi
 
 selected_containers=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Running Containers on $NODE" --checklist "\nSelect containers to update:\n" 16 $((MSG_MAX_LENGTH + 23)) 6 "${UPDATE_MENU[@]}" 3>&1 1>&2 2>&3 | tr -d '"')
 
