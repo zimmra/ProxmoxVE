@@ -34,26 +34,30 @@ UPDATEABLE_CONTAINERS=()
 OTHER_CONTAINERS=()
 
 # Collect all running containers and categorize them
-while read -r TAG ITEM; do
-  # Only include running containers in the menu
+while read -r TAG NAME; do
+  # Only include running containers
   status=$(pct status "$TAG")
   if [ "$status" == "status: running" ]; then
     # Check if container has "updateable" tag
     if pct config "$TAG" | grep -q "^tags:.*updateable"; then
-      UPDATEABLE_CONTAINERS+=("$TAG" "$ITEM")
+      UPDATEABLE_CONTAINERS+=("$TAG" "$NAME")
     else
-      OTHER_CONTAINERS+=("$TAG" "$ITEM")
+      OTHER_CONTAINERS+=("$TAG" "$NAME")
     fi
   fi
-done < <(pct list | awk 'NR>1')
+done < <(pct list | awk 'NR>1 {print $1, $4}')
+
+echo "Debug: Found ${#UPDATEABLE_CONTAINERS[@]/2} updateable containers"  # Debug
+echo "Debug: Found ${#OTHER_CONTAINERS[@]/2} other containers"  # Debug
 
 # Add updateable containers to menu first
 for ((i=0; i<${#UPDATEABLE_CONTAINERS[@]}; i+=2)); do
   TAG="${UPDATEABLE_CONTAINERS[i]}"
-  ITEM="${UPDATEABLE_CONTAINERS[i+1]}"
+  NAME="${UPDATEABLE_CONTAINERS[i+1]}"
   OFFSET=2
-  ((${#ITEM} + OFFSET + 13 > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET+13
-  UPDATE_MENU+=("$TAG" "[$ITEM] (updateable)" "OFF")
+  ITEM_LENGTH=${#NAME}
+  (("$ITEM_LENGTH" + OFFSET + 13 > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH="$ITEM_LENGTH"+OFFSET+13
+  UPDATE_MENU+=("$TAG" "[$NAME] (updateable)" "OFF")
 done
 
 # Add a separator if we have updateable containers and other containers
@@ -66,10 +70,11 @@ fi
 # Add other containers to menu
 for ((i=0; i<${#OTHER_CONTAINERS[@]}; i+=2)); do
   TAG="${OTHER_CONTAINERS[i]}"
-  ITEM="${OTHER_CONTAINERS[i+1]}"
+  NAME="${OTHER_CONTAINERS[i+1]}"
   OFFSET=2
-  ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
-  UPDATE_MENU+=("$TAG" "$ITEM " "OFF")
+  ITEM_LENGTH=${#NAME}
+  (("$ITEM_LENGTH" + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH="$ITEM_LENGTH"+OFFSET
+  UPDATE_MENU+=("$TAG" "$NAME " "OFF")
 done
 
 # Check if we have any containers to display
