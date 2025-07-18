@@ -30,15 +30,44 @@ whiptail --backtitle "Proxmox VE Helper Scripts" --title "Proxmox VE LXC Updater
 NODE=$(hostname)
 UPDATE_MENU=()
 MSG_MAX_LENGTH=0
+
+# First, collect containers with "updateable" tag
 while read -r TAG ITEM; do
   # Only include running containers in the menu
   status=$(pct status "$TAG")
   if [ "$status" == "status: running" ]; then
-    OFFSET=2
-    ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
-    UPDATE_MENU+=("$TAG" "$ITEM " "ON")
+    # Check if container has "updateable" tag
+    tags=$(pct config "$TAG" | grep "^tags:" | cut -d: -f2 | tr -d ' ')
+    if [[ "$tags" == *"updateable"* ]]; then
+      OFFSET=2
+      ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
+      UPDATE_MENU+=("$TAG" "[$ITEM] (updateable)" "OFF")
+    fi
   fi
 done < <(pct list | awk 'NR>1')
+
+# Add a separator if we have updateable containers
+if [ ${#UPDATE_MENU[@]} -gt 0 ]; then
+  SEPARATOR_TEXT="--- Other Running Containers ---"
+  ((${#SEPARATOR_TEXT} + 2 > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#SEPARATOR_TEXT}+2
+  UPDATE_MENU+=("" "$SEPARATOR_TEXT" "OFF")
+fi
+
+# Then, collect all other running containers
+while read -r TAG ITEM; do
+  # Only include running containers in the menu
+  status=$(pct status "$TAG")
+  if [ "$status" == "status: running" ]; then
+    # Check if container does NOT have "updateable" tag
+    tags=$(pct config "$TAG" | grep "^tags:" | cut -d: -f2 | tr -d ' ')
+    if [[ "$tags" != *"updateable"* ]]; then
+      OFFSET=2
+      ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
+      UPDATE_MENU+=("$TAG" "$ITEM " "OFF")
+    fi
+  fi
+done < <(pct list | awk 'NR>1')
+
 selected_containers=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Running Containers on $NODE" --checklist "\nSelect containers to update:\n" 16 $((MSG_MAX_LENGTH + 23)) 6 "${UPDATE_MENU[@]}" 3>&1 1>&2 2>&3 | tr -d '"')
 
 function needs_reboot() {
@@ -93,12 +122,15 @@ fi
 
 # Only process selected containers (which are all running)
 for container in $selected_containers; do
-  # Container is selected and already running, so update it
-  update_container "$container"
-  if pct exec "$container" -- [ -e "/var/run/reboot-required" ]; then
-    # Get the container's hostname and add it to the list
-    container_hostname=$(pct exec "$container" hostname)
-    containers_needing_reboot+=("$container ($container_hostname)")
+  # Skip empty container IDs (separators)
+  if [[ -n "$container" ]]; then
+    # Container is selected and already running, so update it
+    update_container "$container"
+    if pct exec "$container" -- [ -e "/var/run/reboot-required" ]; then
+      # Get the container's hostname and add it to the list
+      container_hostname=$(pct exec "$container" hostname)
+      containers_needing_reboot+=("$container ($container_hostname)")
+    fi
   fi
 done
 wait
