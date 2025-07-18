@@ -47,8 +47,8 @@ while read -r TAG NAME; do
   fi
 done < <(pct list | awk 'NR>1 {print $1, $4}')
 
-echo "Debug: Found ${#UPDATEABLE_CONTAINERS[@]/2} updateable containers"  # Debug
-echo "Debug: Found ${#OTHER_CONTAINERS[@]/2} other containers"  # Debug
+echo "Debug: Found $((${#UPDATEABLE_CONTAINERS[@]}/2)) updateable containers"  # Debug
+echo "Debug: Found $((${#OTHER_CONTAINERS[@]}/2)) other containers"  # Debug
 
 # Add updateable containers to menu first
 for ((i=0; i<${#UPDATEABLE_CONTAINERS[@]}; i+=2)); do
