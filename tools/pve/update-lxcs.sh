@@ -28,14 +28,18 @@ header_info
 echo "Loading..."
 whiptail --backtitle "Proxmox VE Helper Scripts" --title "Proxmox VE LXC Updater" --yesno "This Will Update LXC Containers. Proceed?" 10 58
 NODE=$(hostname)
-EXCLUDE_MENU=()
+UPDATE_MENU=()
 MSG_MAX_LENGTH=0
 while read -r TAG ITEM; do
-  OFFSET=2
-  ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
-  EXCLUDE_MENU+=("$TAG" "$ITEM " "OFF")
+  # Only include running containers in the menu
+  status=$(pct status "$TAG")
+  if [ "$status" == "status: running" ]; then
+    OFFSET=2
+    ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=${#ITEM}+OFFSET
+    UPDATE_MENU+=("$TAG" "$ITEM " "ON")
+  fi
 done < <(pct list | awk 'NR>1')
-excluded_containers=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Containers on $NODE" --checklist "\nSelect containers to skip from updates:\n" 16 $((MSG_MAX_LENGTH + 23)) 6 "${EXCLUDE_MENU[@]}" 3>&1 1>&2 2>&3 | tr -d '"')
+selected_containers=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Running Containers on $NODE" --checklist "\nSelect containers to update:\n" 16 $((MSG_MAX_LENGTH + 23)) 6 "${UPDATE_MENU[@]}" 3>&1 1>&2 2>&3 | tr -d '"')
 
 function needs_reboot() {
   local container=$1
@@ -80,42 +84,26 @@ function update_container() {
 
 containers_needing_reboot=()
 header_info
-for container in $(pct list | awk '{if(NR>1) print $1}'); do
-  excluded_found=false
-  for excluded in "${excluded_containers[@]}"; do
-    if [[ "$excluded" == "$container" ]]; then
-      excluded_found=true
-      break
-    fi
-  done
-  if [[ "$excluded_found" == "true" ]]; then
-    header_info
-    echo -e "${BL}[Info]${GN} Skipping ${BL}$container${CL}"
-    sleep 1
-  else
-    status=$(pct status "$container")
-    template=$(pct config "$container" | grep -q "template:" && echo "true" || echo "false")
-    if [ "$template" == "false" ] && [ "$status" == "status: stopped" ]; then
-      echo -e "${BL}[Info]${GN} Starting${BL} $container ${CL} \n"
-      pct start "$container"
-      echo -e "${BL}[Info]${GN} Waiting For${BL} $container${CL}${GN} To Start ${CL} \n"
-      sleep 5
-      update_container "$container"
-      echo -e "${BL}[Info]${GN} Shutting down${BL} $container ${CL} \n"
-      pct shutdown "$container" &
-    elif [ "$status" == "status: running" ]; then
-      update_container "$container"
-    fi
-    if pct exec "$container" -- [ -e "/var/run/reboot-required" ]; then
-      # Get the container's hostname and add it to the list
-      container_hostname=$(pct exec "$container" hostname)
-      containers_needing_reboot+=("$container ($container_hostname)")
-    fi
+
+# Check if any containers were selected
+if [[ -z "$selected_containers" ]]; then
+  echo -e "${RD}No containers selected for update. Exiting.${CL}"
+  exit 0
+fi
+
+# Only process selected containers (which are all running)
+for container in $selected_containers; do
+  # Container is selected and already running, so update it
+  update_container "$container"
+  if pct exec "$container" -- [ -e "/var/run/reboot-required" ]; then
+    # Get the container's hostname and add it to the list
+    container_hostname=$(pct exec "$container" hostname)
+    containers_needing_reboot+=("$container ($container_hostname)")
   fi
 done
 wait
 header_info
-echo -e "${GN}The process is complete, and the containers have been successfully updated.${CL}\n"
+echo -e "${GN}The process is complete, and the selected containers have been successfully updated.${CL}\n"
 if [ "${#containers_needing_reboot[@]}" -gt 0 ]; then
   echo -e "${RD}The following containers require a reboot:${CL}"
   for container_name in "${containers_needing_reboot[@]}"; do
